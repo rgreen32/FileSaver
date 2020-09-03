@@ -10,11 +10,7 @@
 
 // The one and only way of getting global scope in all environments
 // https://stackoverflow.com/q/3277182/1008999
-var _global = typeof window === 'object' && window.window === window
-  ? window : typeof self === 'object' && self.self === self
-  ? self : typeof global === 'object' && global.global === global
-  ? global
-  : this
+var _global = window
 
 function bom (blob, opts) {
   if (typeof opts === 'undefined') opts = { autoBom: false }
@@ -31,12 +27,13 @@ function bom (blob, opts) {
   return blob
 }
 
-function download (url, name, opts) {
+function download (url, name, callback) {
   var xhr = new XMLHttpRequest()
   xhr.open('GET', url)
   xhr.responseType = 'blob'
   xhr.onload = function () {
-    saveAs(xhr.response, name, opts)
+    callback()
+    saveAs(xhr.response, name)
   }
   xhr.onerror = function () {
     console.error('could not download file')
@@ -78,7 +75,7 @@ var saveAs = _global.saveAs || (
 
   // Use download attribute first if possible (#193 Lumia mobile) unless this is a macOS WebView
   : ('download' in HTMLAnchorElement.prototype && !isMacOSWebView)
-  ? function saveAs (blob, name, opts) {
+  ? function saveAs (blob, name, callback) {
     var URL = _global.URL || _global.webkitURL
     var a = document.createElement('a')
     name = name || blob.name || 'download'
@@ -92,9 +89,9 @@ var saveAs = _global.saveAs || (
     if (typeof blob === 'string') {
       // Support regular links
       a.href = blob
-      if (a.origin !== location.origin) {
+      if (a.origin !== window.location.origin) {
         corsEnabled(a.href)
-          ? download(blob, name, opts)
+          ? download(blob, name, callback)
           : click(a, a.target = '_blank')
       } else {
         click(a)
@@ -130,7 +127,7 @@ var saveAs = _global.saveAs || (
   : function saveAs (blob, name, opts, popup) {
     // Open a popup immediately do go around popup blocker
     // Mostly only available on user interaction and the fileReader is async so...
-    popup = popup || open('', '_blank')
+    popup = popup || window.open('', '_blank')
     if (popup) {
       popup.document.title =
       popup.document.body.innerText = 'downloading...'
@@ -149,7 +146,7 @@ var saveAs = _global.saveAs || (
         var url = reader.result
         url = isChromeIOS ? url : url.replace(/^data:[^;]*;/, 'data:attachment/file;')
         if (popup) popup.location.href = url
-        else location = url
+        else window.location = url
         popup = null // reverse-tabnabbing #460
       }
       reader.readAsDataURL(blob)
@@ -157,7 +154,7 @@ var saveAs = _global.saveAs || (
       var URL = _global.URL || _global.webkitURL
       var url = URL.createObjectURL(blob)
       if (popup) popup.location = url
-      else location.href = url
+      else window.location.href = url
       popup = null // reverse-tabnabbing #460
       setTimeout(function () { URL.revokeObjectURL(url) }, 4E4) // 40s
     }
