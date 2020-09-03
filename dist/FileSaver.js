@@ -24,7 +24,7 @@
   */
   // The one and only way of getting global scope in all environments
   // https://stackoverflow.com/q/3277182/1008999
-  var _global = typeof window === 'object' && window.window === window ? window : typeof self === 'object' && self.self === self ? self : typeof global === 'object' && global.global === global ? global : void 0;
+  var _global = window;
 
   function bom(blob, opts) {
     if (typeof opts === 'undefined') opts = {
@@ -46,13 +46,14 @@
     return blob;
   }
 
-  function download(url, name, opts) {
+  function download(url, name, callback) {
     var xhr = new XMLHttpRequest();
     xhr.open('GET', url);
     xhr.responseType = 'blob';
 
     xhr.onload = function () {
-      saveAs(xhr.response, name, opts);
+      callback();
+      saveAs(xhr.response, name);
     };
 
     xhr.onerror = function () {
@@ -93,7 +94,7 @@
   typeof window !== 'object' || window !== _global ? function saveAs() {}
   /* noop */
   // Use download attribute first if possible (#193 Lumia mobile) unless this is a macOS WebView
-  : 'download' in HTMLAnchorElement.prototype && !isMacOSWebView ? function saveAs(blob, name, opts) {
+  : 'download' in HTMLAnchorElement.prototype && !isMacOSWebView ? function saveAs(blob, name, callback) {
     var URL = _global.URL || _global.webkitURL;
     var a = document.createElement('a');
     name = name || blob.name || 'download';
@@ -106,8 +107,8 @@
       // Support regular links
       a.href = blob;
 
-      if (a.origin !== location.origin) {
-        corsEnabled(a.href) ? download(blob, name, opts) : click(a, a.target = '_blank');
+      if (a.origin !== window.location.origin) {
+        corsEnabled(a.href) ? download(blob, name, callback) : click(a, a.target = '_blank');
       } else {
         click(a);
       }
@@ -144,7 +145,7 @@
   : function saveAs(blob, name, opts, popup) {
     // Open a popup immediately do go around popup blocker
     // Mostly only available on user interaction and the fileReader is async so...
-    popup = popup || open('', '_blank');
+    popup = popup || window.open('', '_blank');
 
     if (popup) {
       popup.document.title = popup.document.body.innerText = 'downloading...';
@@ -164,7 +165,7 @@
       reader.onloadend = function () {
         var url = reader.result;
         url = isChromeIOS ? url : url.replace(/^data:[^;]*;/, 'data:attachment/file;');
-        if (popup) popup.location.href = url;else location = url;
+        if (popup) popup.location.href = url;else window.location = url;
         popup = null; // reverse-tabnabbing #460
       };
 
@@ -172,7 +173,7 @@
     } else {
       var URL = _global.URL || _global.webkitURL;
       var url = URL.createObjectURL(blob);
-      if (popup) popup.location = url;else location.href = url;
+      if (popup) popup.location = url;else window.location.href = url;
       popup = null; // reverse-tabnabbing #460
 
       setTimeout(function () {
